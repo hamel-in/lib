@@ -10,38 +10,41 @@ function fetchPlaylist(id) {
 	return fetch(url);
 }
 
+function fetchAllPlaylists(playlists) {
+	const promiseArr = playlists.data.items.map(i => {
+		return fetchPlaylist(i.id).then(resp => resp.json());
+	});
+	return Promise.all(promiseArr);
+}
+
 function mergePlaylists(playlists) {
 	let videos = {};
 	let videoIDs = [];
 	let merged = [];
-	let promiseArr = playlists.data.items.map(i => {
-		return fetchPlaylist(i.id).then(resp => resp.json());
-	})
-	return Promise.all(promiseArr).then((playlists) => {
-		playlists.forEach((playlist) => {
-			playlist.data.items.forEach((item) => {
-				if (item.video.id in videos) {
-					videos[item.video.id].count++;
-				} else {
-					videos[item.video.id] = item;
-					videos[item.video.id].count = 1;
-					videoIDs.push(item.video.id);
-				}
-			});
+	playlists.forEach((playlist) => {
+		playlist.data.items.forEach((item) => {
+			if (item.video.id in videos) {
+				videos[item.video.id].count++;
+			} else {
+				videos[item.video.id] = item;
+				videos[item.video.id].count = 1;
+				videoIDs.push(item.video.id);
+			}
 		});
-		merged = videoIDs.map(id => videos[id]);
-		return merged;
 	});
+	merged = videoIDs.map(id => videos[id]);
+	return merged;
 }
 
 function sortMergedPlaylist(playlist) {
-	let compareFunction = (a, b) => a.count - b.count;
+	const compareFunction = (a, b) => a.count - b.count;
 	return playlist.sort(compareFunction);
 }
 
 function fetchRelated(videoId) {
 	return fetchPlaylistsContainingVideo(videoId)
 		.then(resp => resp.json())
+	  .then(fetchAllPlaylists)
 		.then(mergePlaylists)
 		.then(sortMergedPlaylist);
 }
